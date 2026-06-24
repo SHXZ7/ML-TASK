@@ -21,5 +21,5 @@ EXPOSE 8000
 # Set PYTHONPATH so the backend package is importable
 ENV PYTHONPATH=/app
 
-# Run FastAPI using uvicorn
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI using uvicorn, resolving the PORT variable dynamically
+CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}
