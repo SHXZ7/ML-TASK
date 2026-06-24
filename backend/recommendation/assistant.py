@@ -139,6 +139,17 @@ User Query: "{query}"
         inputs = processor(text=[search_keywords], return_tensors="pt", padding=True).to(device)
         with torch.no_grad():
             text_features = model.get_text_features(**inputs)
+            # Handle transformers library version differences where get_text_features might return BaseModelOutputWithPooling
+            if not isinstance(text_features, torch.Tensor):
+                if hasattr(text_features, "pooler_output"):
+                    text_features = text_features.pooler_output
+                elif hasattr(text_features, "last_hidden_state"):
+                    text_features = text_features.last_hidden_state
+                elif hasattr(text_features, "logits"):
+                    text_features = text_features.logits
+                elif hasattr(text_features, "__getitem__"):
+                    text_features = text_features[0]
+                    
             # Normalize embedding
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
             return text_features[0].cpu().numpy().tolist()
