@@ -7,9 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
+# Copy requirements and install dependencies (no torch/transformers - using HF Inference API instead)
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire workspace (including images, products.csv, outfits.csv, and backend)

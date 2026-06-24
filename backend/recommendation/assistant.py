@@ -1,9 +1,9 @@
 import os
 import re
 import json
-import torch
+import requests
+import numpy as np
 from groq import Groq
-from transformers import CLIPProcessor, CLIPModel
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from backend.recommendation.engine import (
@@ -20,32 +20,12 @@ from backend.recommendation.engine import (
 # Load Groq API Key
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+# HuggingFace Inference API for FashionCLIP text embeddings (no local model loading)
+HF_TOKEN = os.getenv("HF_TOKEN")
+HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/patrickjohncyh/fashion-clip"
+
 # Allowed occasion categories in the database
 ALLOWED_OCCASIONS = {'casual', 'party', 'office', 'festive', 'wedding', 'sports', 'vacation', 'winter'}
-
-# Shared FashionCLIP model references (loaded lazily to save memory)
-_model = None
-_processor = None
-_device = None
-
-def get_fashionclip_model():
-    """Lazy loader for FashionCLIP to avoid reloading it across files."""
-    global _model, _processor, _device
-    if _model is None:
-        # Limit CPU threads to minimize memory overhead
-        torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
-        
-        _device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        # Load in low-precision bfloat16 on CPU to save 50% RAM
-        if _device == "cpu":
-            _model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip", torch_dtype=torch.bfloat16).to(_device)
-        else:
-            _model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip").to(_device)
-            
-        _processor = CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
-    return _model, _processor, _device
 
 class FashionAssistant:
     def __init__(self):
@@ -144,25 +124,41 @@ User Query: "{query}"
         }
 
     def embed_text_query(self, search_keywords: str) -> list:
-        """Step 2: Converts the search keywords into a 512-dimension text vector using FashionCLIP."""
-        model, processor, device = get_fashionclip_model()
-        inputs = processor(text=[search_keywords], return_tensors="pt", padding=True).to(device)
-        with torch.no_grad():
-            text_features = model.get_text_features(**inputs)
-            # Handle transformers library version differences where get_text_features might return BaseModelOutputWithPooling
-            if not isinstance(text_features, torch.Tensor):
-                if hasattr(text_features, "pooler_output"):
-                    text_features = text_features.pooler_output
-                elif hasattr(text_features, "last_hidden_state"):
-                    text_features = text_features.last_hidden_state
-                elif hasattr(text_features, "logits"):
-                    text_features = text_features.logits
-                elif hasattr(text_features, "__getitem__"):
-                    text_features = text_features[0]
-                    
-            # Normalize embedding
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            return text_features[0].float().cpu().numpy().tolist()
+        """
+        Step 2: Converts the search keywords into a 512-dimension text vector via
+        the HuggingFace Inference API (patrickjohncyh/fashion-clip).
+        No local model loading — keeps Railway memory usage minimal.
+        """
+        headers = {"Content-Type": "application/json"}
+        if HF_TOKEN:
+            headers["Authorization"] = f"Bearer {HF_TOKEN}"
+
+        try:
+            response = requests.post(
+                HF_API_URL,
+                headers=headers,
+                json={"inputs": search_keywords},
+                timeout=30
+            )
+            response.raise_for_status()
+            raw = response.json()
+
+            # HF feature-extraction returns shape [1, 512] or [512] depending on model
+            if isinstance(raw, list) and len(raw) > 0:
+                vec = raw[0] if isinstance(raw[0], list) else raw
+            else:
+                raise ValueError(f"Unexpected HF API response format: {type(raw)}")
+
+            # L2-normalize so it matches the ingested Qdrant vectors
+            arr = np.array(vec, dtype=np.float32)
+            norm = np.linalg.norm(arr)
+            if norm > 0:
+                arr = arr / norm
+            return arr.tolist()
+
+        except Exception as e:
+            print(f"⚠️ HF Inference API embedding failed: {e}. Falling back to zero vector.")
+            return [0.0] * 512
 
     def find_initial_hero(self, keywords: str, gender: str = None, occasion: str = None) -> dict:
         """
