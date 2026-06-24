@@ -2,12 +2,14 @@ import os
 import re
 import uuid
 import pandas as pd
-import torch
-from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, PayloadSchemaType
 from dotenv import load_dotenv
+
+# NOTE: torch, PIL, and transformers are intentionally NOT imported at module level.
+# engine.py imports extract_color_info from this file at server startup, so top-level
+# torch imports would crash the Railway deployment (OOM). They are imported inside main()
+# which only runs when this script is executed directly for ingestion.
 
 # Load environment variables
 load_dotenv()
@@ -115,6 +117,12 @@ def extract_color_info(text):
     return "unknown", "unknown"
 
 def main():
+    # Import heavy ML dependencies only here — NOT at module level
+    # This prevents torch from loading when engine.py imports extract_color_info
+    import torch
+    from PIL import Image
+    from transformers import CLIPProcessor, CLIPModel
+
     print("🚀 Initializing Ingestion Pipeline...")
     
     # 1. Connect to Qdrant Server
