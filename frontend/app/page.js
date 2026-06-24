@@ -5,7 +5,7 @@ import ChatInterface from "../components/ChatInterface";
 import OutfitCanvas from "../components/OutfitCanvas";
 import ProductCatalog from "../components/ProductCatalog";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ml-task-production.up.railway.app";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("chat"); // "chat" or "catalog"
