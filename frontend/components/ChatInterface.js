@@ -4,6 +4,24 @@ import React, { useState, useRef, useEffect } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://shxz7-ml-task.hf.space";
 
+// Renders a message string with **bold** markers and newlines into React elements
+function renderMessageText(text) {
+  return text.split("\n").map((line, li) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    return (
+      <span key={li}>
+        {parts.map((part, pi) => {
+          if (part.startsWith("**") && part.endsWith("**")) {
+            return <strong key={pi}>{part.slice(2, -2)}</strong>;
+          }
+          return part;
+        })}
+        {li < text.split("\n").length - 1 && <br />}
+      </span>
+    );
+  });
+}
+
 export default function ChatInterface({ onLoadOutfitInCanvas }) {
   const [messages, setMessages] = useState([
     {
@@ -63,7 +81,21 @@ export default function ChatInterface({ onLoadOutfitInCanvas }) {
       }
 
       const recommendation = await res.json();
-      
+
+      // If the backend returned an error (catalog mismatch, off-topic, etc.) show it cleanly
+      if (recommendation.error) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "bot",
+            text: recommendation.error,
+            isError: true
+          }
+        ]);
+        setLoading(false);
+        return;
+      }
+
       // Add bot response with recommendation details
       setMessages((prev) => [
         ...prev,
@@ -105,9 +137,12 @@ export default function ChatInterface({ onLoadOutfitInCanvas }) {
           const isUser = msg.sender === "user";
           return (
             <div key={index} className={`message-row ${isUser ? "user-row" : "stylist-row"}`}>
-              <div className="msg-bubble" style={{ whiteSpace: "pre-line" }}>
-                {msg.text}
-                
+              <div
+                className={`msg-bubble ${msg.isError ? "error-bubble" : ""}`}
+                style={{ whiteSpace: "pre-line" }}
+              >
+                {renderMessageText(msg.text)}
+
                 {/* Embed recommendation panel if available */}
                 {msg.recommendation && (
                   <div className="chat-outfit-recommendation">
@@ -141,7 +176,7 @@ export default function ChatInterface({ onLoadOutfitInCanvas }) {
                       <span className="chat-outfit-price">
                         Total: ₹{msg.recommendation.total_price_inr}
                       </span>
-                      
+
                       {msg.recommendation.items?.hero && (
                         <button
                           className="canvas-load-btn"

@@ -189,6 +189,10 @@ User Query: "{query}"
             should=category_conditions
         )
         
+        # Minimum similarity score — anything below this means the catalog doesn't have
+        # what the user asked for (e.g. asking for "yellow cocktail dress" in a catalog with none)
+        SIMILARITY_THRESHOLD = 0.20
+
         try:
             # Attempt occasion-aware search first
             if occasion:
@@ -200,23 +204,25 @@ User Query: "{query}"
                     collection_name=COLLECTION_NAME,
                     query=text_vector,
                     query_filter=occasion_filter,
-                    limit=1
+                    limit=1,
+                    score_threshold=SIMILARITY_THRESHOLD
                 )
                 if res and res.points:
                     return res.points[0].payload
-                    
+
             # Fallback to general search if occasion search yielded nothing or occasion is None
             res = self.engine.qdrant_client.query_points(
                 collection_name=COLLECTION_NAME,
                 query=text_vector,
                 query_filter=qdrant_filter,
-                limit=1
+                limit=1,
+                score_threshold=SIMILARITY_THRESHOLD
             )
             if res and res.points:
                 return res.points[0].payload
         except Exception as e:
             print(f"❌ Error during initial hero search: {e}")
-            
+
         return None
 
     def generate_stylist_rationale(self, user_query: str, occasion: str, items: dict) -> str:
@@ -239,9 +245,9 @@ Occasion: {occasion if occasion else "general wear"}
 Outfit Recommendation:
 {items_str}
 
-Write a friendly, personalized 2-3 sentence explanation explaining why this combination is compatible and matches their context. 
-If there is a mismatch between what the client requested (e.g., specific colors, brands, or clothing items) and the actual items in the recommended outfit (because the exact request is not in our catalog), make sure to acknowledge this deviation gracefully (e.g., "We don't have a yellow dress in our catalog, so I styled this classic black dress from our lookbook...").
-Focus on styling coordination (colors, materials) and occasion appropriateness. Do not mention product IDs or technical details. Keep it conversational.
+Write a friendly, personalized 2-3 sentence explanation explaining why this combination is compatible and suits the occasion.
+Focus on styling coordination (colors, materials, and occasion-appropriateness). Do NOT apologise for mismatches or mention that items were unavailable. Speak as though these items were curated specifically for the client.
+Do not mention product IDs or technical details. Keep it warm and conversational.
 Stylist Rationale:
 """
         try:
@@ -272,26 +278,36 @@ Stylist Rationale:
         # Check fashion relevance
         if not intent.get("is_fashion_related", True):
             return {
-                "error": "I couldn't quite find any fashion context in your message. Could you try describing an outfit, occasion, or style you'd like me to coordinate? (e.g., 'casual outfit for a summer date' or 'smart casual for an office meeting').",
+                "error": "I'm AURA, your personal AI Fashion Stylist! I can only help with outfit and styling questions. Try asking me something like:\n\n• 'Suggest a casual outfit for a summer date'\n• 'I need smart casual for an office meeting'\n• 'What should I wear to a beach vacation?'",
                 "parsed_intent": intent
             }
-            
+
         if not keywords or not keywords.strip():
             return {
                 "error": "It looks like your request didn't specify a clothing type or keywords. Please let me know what items or look you are searching for!",
                 "parsed_intent": intent
             }
-            
+
         # 2. Retrieve initial anchor product (Hero)
         hero_item = self.find_initial_hero(
             keywords=keywords,
             gender=gender,
             occasion=occasion
         )
-        
+
         if not hero_item:
             return {
-                "error": f"Could not find any suitable starting products in our catalog for '{keywords}'. Try searching for different items or styles.",
+                "error": (
+                    f"I searched our catalog but couldn't find a close enough match for **'{keywords}'**.\n\n"
+                    "Our catalog currently includes:\n"
+                    "• **Topwear**: shirts, T-shirts, polo tees, sweatshirts, tops, sweaters\n"
+                    "• **Bottomwear**: trousers, jeans, chinos, shorts, skirts, leggings\n"
+                    "• **Full-body**: co-ord sets, party dresses, maxi dresses, sarees, suits, sherwanis\n"
+                    "• **Outerwear**: blazers, coats, denim jackets\n"
+                    "• **Footwear**: heels, sneakers, loafers, boots, sandals, ethnic footwear\n"
+                    "• **Accessories**: watches, bags, necklaces, earrings, sunglasses\n\n"
+                    "Try rephrasing your request with something from the list above!"
+                ),
                 "parsed_intent": intent
             }
             

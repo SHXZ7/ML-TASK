@@ -884,6 +884,17 @@ button, input, select, textarea {
   border-bottom-left-radius: 2px;
 }
 
+.stylist-row .msg-bubble.error-bubble {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.30);
+  color: var(--foreground);
+}
+
+.stylist-row .msg-bubble.error-bubble strong {
+  color: #f59e0b;
+}
+
+
 .chat-outfit-recommendation {
   margin-top: 1rem;
   padding: 1rem;
