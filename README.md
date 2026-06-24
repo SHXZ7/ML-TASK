@@ -1,3 +1,13 @@
+---
+title: AURA AI Fashion Stylist
+emoji: 👗
+colorFrom: purple
+colorTo: pink
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # AURA: AI Conversational Fashion Stylist & Outfit Compatibility System
 
 **AURA** is an advanced AI-powered fashion outfit recommendation system and conversational styling assistant. It leverages multi-modal embeddings, vector search, rule-based fashion compatibility heuristics, and LLM reasoning to recommend curated and dynamically composed outfits.
