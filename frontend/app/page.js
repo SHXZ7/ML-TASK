@@ -5,7 +5,7 @@ import ChatInterface from "../components/ChatInterface";
 import OutfitCanvas from "../components/OutfitCanvas";
 import ProductCatalog from "../components/ProductCatalog";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ml-task-production.up.railway.app";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://shxz7-ml-task.hf.space";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("chat"); // "chat" or "catalog"

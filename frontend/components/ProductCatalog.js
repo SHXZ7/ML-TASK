@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ml-task-production.up.railway.app";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://shxz7-ml-task.hf.space";
 
 // Helper to map color families to hex values for product catalog dots
 const getColorFamilyHex = (color) => {
