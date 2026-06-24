@@ -1,11 +1,22 @@
 import sys
 import os
+import types
 
-# Add the parent directory of backend to sys.path so that 'backend' module is importable
+# Resolve path locations
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+
+# Add parent directory to path for local execution compatibility
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
+
+# Fallback for monorepo container deployments (like Railway where Root Directory is /backend)
+# If the physical 'backend' directory does not exist relative to SCRIPT_DIR, register a virtual module
+if not os.path.exists(os.path.join(PARENT_DIR, "backend")):
+    if "backend" not in sys.modules:
+        backend_module = types.ModuleType("backend")
+        backend_module.__path__ = [SCRIPT_DIR]
+        sys.modules["backend"] = backend_module
 
 from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, Query
