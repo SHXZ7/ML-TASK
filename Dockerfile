@@ -9,6 +9,7 @@ WORKDIR /app
 
 # Copy requirements and install dependencies
 COPY backend/requirements.txt .
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire workspace (including images, products.csv, outfits.csv, and backend)

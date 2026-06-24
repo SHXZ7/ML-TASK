@@ -32,8 +32,18 @@ def get_fashionclip_model():
     """Lazy loader for FashionCLIP to avoid reloading it across files."""
     global _model, _processor, _device
     if _model is None:
+        # Limit CPU threads to minimize memory overhead
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        
         _device = "cuda" if torch.cuda.is_available() else "cpu"
-        _model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip").to(_device)
+        
+        # Load in low-precision bfloat16 on CPU to save 50% RAM
+        if _device == "cpu":
+            _model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip", torch_dtype=torch.bfloat16).to(_device)
+        else:
+            _model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip").to(_device)
+            
         _processor = CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
     return _model, _processor, _device
 
@@ -152,7 +162,7 @@ User Query: "{query}"
                     
             # Normalize embedding
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            return text_features[0].cpu().numpy().tolist()
+            return text_features[0].float().cpu().numpy().tolist()
 
     def find_initial_hero(self, keywords: str, gender: str = None, occasion: str = None) -> dict:
         """
